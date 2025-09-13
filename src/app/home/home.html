@@ -1,0 +1,11 @@
+<p>home works!</p>
+@if (foo.hasValue()) {
+  <pre>{{ foo.value() | json }}</pre>
+  @defer (hydrate never) {
+    <app-bar />
+  }
+} @else if (foo.isLoading()) {
+  <p>Loading... {{ logLoading() }}</p>
+} @else if (foo.error()) {
+  <p>Oops</p>
+}
