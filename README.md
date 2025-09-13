@@ -1,59 +1,40 @@
 # HydrationRepro
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.1.4.
+This project reproduces what I think is a bug with resources combined with incremental hydration.
 
-## Development server
+The home component uses an `httpResource` to load some data (`foo.json`).  
+Its template uses the traditional if block testing if the resource has a value, or is loading, or has an error.
 
-To start a local development server, run:
+If it has a value, then it shows an additional component (`Bar`) deferred component using
 
-```bash
-ng serve
+```
+@defer (hydrate never) {
+  <app-bar />
+}
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+The Bar component itself loads some other data (`bar.json`) using another `httpResource`.
 
-## Code scaffolding
+This project uses SSR, so loading the page should not do any http request to load `foo.json` or `bar.json`:
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+- both are already loaded and displayed by the server
+- the transfer state is being used
+- the `@defer (hydrate never)` should even prevent the Bar component from being displayed.
+- since `foo.json` is directly available, `isLoading()` should never be true and the loader should never be displayed.
 
-```bash
-ng generate component component-name
-```
+But that only works partially:
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+- `foo.json` is not reloaded from the server (which is expected)
+- `Bar` is being constructed (not expected)
+- `bar.json` is reloaded from the server (not expected)
+- the loading block is being displayed temporarily (not expected)
 
-```bash
-ng generate --help
-```
+If the `@else if (foo.isLoading())` block is removed from the template, then everything starts working as expected:
 
-## Building
+- `Bar` is not being constructed
+- `bar.json` is not reloaded from the server
 
-To build the project run:
+And if the defer block is instead defined with `@defer (on immediate; hydrate never) {`, then 
 
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- `Bar` is being constructed (unexpected)
+- `bar.json` is not reloaded from the server (expected)
